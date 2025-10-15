@@ -10,4 +10,4 @@ Journal/Meeting: Findings of the Association for Computational Linguistics ACL 2
 
 Star:
 
-PDF: [The Revolution of Multimodal Large Language Models: A Survey](original_files/Caffagni%20%E7%AD%89%20-%202024%20-%20The%20Revolution%20of%20Multimodal%20Large%20Language%20Models%20A%20Survey.pdf)
+PDF: [The Revolution of Multimodal Large Language Models: A Survey](original_files/Caffagni_2024_The_Revolution_of_Multimodal_Large_Language_Models_A_Survey.pdf)

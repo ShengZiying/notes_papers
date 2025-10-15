@@ -10,6 +10,6 @@ Journal/Meeting: Findings of the Association for Computational Linguistics: ACL 
 
 Star:  
 
-PDF: [From Specific-MLLMs to Omni-MLLMs: A Survey on MLLMs Aligned with Multi-modalities](../../original_files/Jiang%20%E7%AD%89%20-%202025%20-%20From%20specific-MLLMs%20to%20omni-MLLMs%20A%20survey%20on%20MLLMs%20aligned%20with%20multi-modalities.pdf)
+PDF: [From Specific-MLLMs to Omni-MLLMs: A Survey on MLLMs Aligned with Multi-modalities](From_specific-MLLMs_to_omni-MLLMs_A_survey_on_MLLMs_aligned_with_multi-modalities)
 
 
