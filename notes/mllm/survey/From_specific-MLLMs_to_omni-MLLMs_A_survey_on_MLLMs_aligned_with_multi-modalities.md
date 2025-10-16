@@ -12,4 +12,3 @@ Star:
 
 PDF: [From Specific-MLLMs to Omni-MLLMs: A Survey on MLLMs Aligned with Multi-modalities](original_files/Jiang_2025_From_specific-MLLMs_to_omni-MLLMs_A_survey_on_MLLMs_aligned_with_multi-modalities.pdf)
 
-
