@@ -52,7 +52,7 @@ $$\boldsymbol{F}_{X}={ME}_{X}(I_{X})$$
 
 $$\arg \min_{\Theta_{X\rightarrow T}} \mathcal{L}_{txt-gen}(LLM(\boldsymbol{P}_{X},F_{T}),t), \quad \text{where} \ \boldsymbol{P}_X = \boldsymbol{\Theta}_{X\rightarrow T}(\boldsymbol{F}_X)$$
 
-- **Input Projector** $\Theta_{X\rightarrow T}$: align the encoded features of other modalities $\boldsymbol{F}_X$ with the text feature space $T$. The Input Projector can be achieved directly by a **Linear Projector** or **Multi-Layer Perceptron (MLP)**. There are also more complex implementations like Cross-attention, Q-Former (Li et al., 2023e), PFormer (Jian et al., 2023), and MQ-Former (Lu et al., 2023a).
+- **Input Projector** $\Theta_{X\rightarrow T}$: align the encoded features of other modalities $\boldsymbol{F}_X$ with the text feature space $T$. The Input Projector can be achieved directly by a **Linear Projector** or **Multi-Layer Perceptron (MLP)**. There are also more complex implementations like **Cross-attention**, **Q-Former** (Li et al., 2023e), **P-Former** (Jian et al., 2023), and **MQ-Former** (Lu et al., 2023a).
 
 - **Prompts** $\boldsymbol{P}_X$: Features of other modalities proceessed with $\Theta_{X\rightarrow T}$.
 
@@ -80,7 +80,7 @@ Moreover, some works have introduced **Parameter-Efficient Fine-Tuning (PEFT)** 
 
 $$\arg \min_{\Theta_{T\rightarrow X}} \mathcal{L}_{mse}(H_X, \tau_X(t)), \quad \text{where} \ \boldsymbol{H}_X = \Theta_{T\rightarrow X}(\boldsymbol{S}_X)$$
 
-- **Output Projector** $\Theta_{T\rightarrow X}$: maps the signal token representations SX from the LLM Backbone into features $\boldsymbol{H}_X$ understandable to the following Modality Generator $MG_X$. The Output Projector is implemented by a Tiny Transformer with a learnable decoder feature sequence or MLP.
+- **Output Projector** $\Theta_{T\rightarrow X}$: maps the signal token representations SX from the LLM Backbone into features $\boldsymbol{H}_X$ understandable to the following Modality Generator ${MG}_X$. The Output Projector is implemented by a Tiny Transformer with a learnable decoder feature sequence or MLP.
 
 - **Features** $\boldsymbol{H}_X$
 
@@ -96,7 +96,7 @@ $$\arg \min_{\Theta_{T\rightarrow X}} \mathcal{L}_{mse}(H_X, \tau_X(t)), \quad \
 
 $$\mathcal{L}_{X-gen}:=\mathbb{E}_{\epsilon\sim\mathcal{N}(0,1),t}||\epsilon-\epsilon_{X}(z_{t},t,\boldsymbol{H}_X)||_{2}^{2}$$
 
-- $\mathcal{L}_{X-gen}$: 模态 X 的生成损失 (generation loss)。
+- $\mathcal{L}_{X-gen}$: 模态 $X$ 的生成损失 (generation loss)。
 
 - $\mathbb{E}$: 数学期望，表示对随机变量（这里是噪声 $\epsilon$ 和时间步 $t$）求平均值。
 
@@ -108,7 +108,7 @@ $$\mathcal{L}_{X-gen}:=\mathbb{E}_{\epsilon\sim\mathcal{N}(0,1),t}||\epsilon-\ep
 
 - $\boldsymbol{H}_X$: 由输出投影器生成的条件特征，用于指导生成过程。
 
-**Object**: 这是一个用于训练潜在扩散模型 (Latent Diffusion Models, LDM) 的损失函数，通过优化这个目标来间接训练输入和输出投影器 。
+**Object**: 这是一个用于训练潜在扩散模型 (Latent Diffusion Models, LDM) 的损失函数，通过优化这个目标来间接训练输入和输出投影器。
 
 **Explaination**: 扩散模型的标准训练过程。首先，将一个真实的样本（如图片）编码到潜空间得到 $z_0$，然后给它添加随机噪声 $\epsilon$ 得到一个“模糊”的版本 $z_t$。接下来，让 U-Net 模型 ($\epsilon_X$) 观察这个模糊的 $z_t$ 和我们提供的条件信息 $\boldsymbol{H}_X$，并尝试预测出当初添加的噪声 $\epsilon$ 是什么。损失函数 $\mathcal{L}_{X-gen}$ 计算的是真实噪声与模型预测的噪声之间的均方误差。通过最小化这个误差，U-Net 模型就学会了如何在 $\boldsymbol{H}_X$ 的指导下去除噪声、复原数据，从而也就具备了生成全新数据的能力。在 MM-LLM 的框架下，这个损失函数被用来同时优化输入和输出两个投影器。
 
@@ -141,22 +141,136 @@ $$\mathcal{L}_{X-gen}:=\mathbb{E}_{\epsilon\sim\mathcal{N}(0,1),t}||\epsilon-\ep
 
 ## 3 Training Pipeline
 
+现有的 MM-LLMs 所使用的具体训练数据各不相同，但它们通常都是表 3 (PT 数据) 和表 4 (IT 数据) 中所列数据集的子集 。
+
 ### 3.1 MM PT (Pre-Training)
 
+**目标**: 此阶段的核心目标是实现“模态对齐” 。它使用大规模的 “X-Text” 数据集（例如，图像-文本对、视频-文本对）来训练模型中的连接器，即输入投影器 (Input Projector) 和输出投影器 (Output Projector)。
+
+**训练内容**
+
+对于多模态理解 (MM understanding) 模型（只接受多模态输入，输出文本），训练目标是最小化在给定多模态信息下的文本生成损失，即只优化公式 (2)。
+
+对于多模态生成 (MM generation) 模型（可输出多模态内容），训练目标则更为复杂，需要同时优化三个目标：文本生成损失（公式 2）、输出对齐损失（公式 4）和模态生成损失（公式 5）。
+
+**训练数据**
+
+此阶段使用的数据集被称为 X-Text 数据集，包括图像-文本、视频-文本和音频-文本数据 。
+
+数据格式主要有两种：
+
+- 配对数据: 例如 <img1> <txt1> 的形式 。
+
+- 交错数据 (interleaved): 例如 <txt1><img1><txt2><txt3><img2><txt4> 这种文本和图像/视频交错出现的形式 。
+
+论文在表 3 中汇总了这些预训练数据集的细节 。
+
 ### 3.2 MM IT (Instruction-Tunning)
+
+**目标**: 此阶段的目的是让模型学会遵循人类的指令，从而提升其在未见过的新任务上的零样本 (zero-shot) 泛化能力 。它旨在使模型与人类的意图对齐，并增强其交互能力 。
+
+**组成**: MM IT 包含两个步骤：**监督微调 (SFT)** 和**来自人类反馈的强化学习 (RLHF)**。
+
+#### 3.2.1 监督微调 (Supervised Fine-Tuning, SFT)
+
+过程: SFT 将一部分预训练数据转换成“指令感知”的格式 。
+
+示例: 论文以视觉问答 (QA) 为例，同样的数据可以被格式化为不同的指令模板 ：
+
+模板 1: "&lt;Image&gt;{Question}" A short answer to the question is; 
+
+模板 2: "&lt;Image&gt;" Examine the image and respond to the following question with a brief answer: "{Question}. Answer:" 
+
+数据类型: SFT 数据集可以是单轮问答，也可以是多轮对话的形式 。
+
+#### 3.2.2 来自人类反馈的强化学习 (Reinforcement Learning from Human Feedback, RLHF)
+
+过程: 在 SFT 之后，RLHF 会根据人类对模型生成答案的反馈来进一步微调模型 。
+
+反馈形式: 这种反馈通常是“自然语言反馈” (Natural Language Feedback, NLF)，可以由人工标注或自动生成 。
+
+训练: 由于 NLF 这种反馈是不可微分的（即不能直接用于梯度下降），模型会使用强化学习算法来学习如何根据这种反馈生成更符合人类偏好和意图的回答 。
 
 ---
 
 ## 4 SOTA MM-LLMs
 
+本章首先对 126 个先进的 (SOTA) MM-LLMs 进行了分类，主要从“功能划分”和“设计划分”两个角度。
+
+**功能划分 (Functional Division)**
+
+- **MM Unders. (多模态理解)**: 这类模型专注于理解多模态输入并仅生成文本输出 。例如，输入是图像+文本（I+T），输出是文本（T）。
+
+- **MM Genera. (多模态生成)**: 这类模型不仅能理解输入，还能生成多模态内容（如图像、音频等）作为输出 。例如，输入是图像+文本，输出也是图像+文本。
+
+**设计划分 (Design Division)**
+
+- **Tool-using (工具使用)**: 这类模型将 LLM 视为一个黑盒 ，通过推理来调用外部的专家系统（即“工具”）来执行特定的多模态任务。
+
+- **End-to-end (端到端)**: 这类模型的所有组件都是联合训练的。
+
+![alt text](pics/image1.png)
+
+论文还提供了 表 1，详细对比了 43 个主流 MM-LLMs 的架构实现和训练数据规模。
+
+![alt text](pics/image2.png)
+
+最后，本章总结了现有 MM-LLMs 的**发展趋势**：
+
+- **功能演进**: 从专注于多模态理解，发展到特定模态的生成，再进一步演变为任意模态到任意模态 (any-to-any) 的转换（例如，MiniGPT-4 → MiniGPT-5 → NEXT-GPT）。
+
+- **训练流程优化**: 训练流程不断完善，从多模态预训练 (MM PT) 到监督微调 (SFT)，再到强化学习 (RLHF)，目标是更好地与人类意图对齐并增强对话能力（例如，BLIP-2 → InstructBLIP → DRESS）。
+
+- **模态扩展**: 拥抱多样化的模态扩展，不仅仅局限于视觉和语言（例如，BLIP-2 → X-LLM）。
+
+- **数据质量**: 采用更高质量的训练数据集（例如，LLaVA → LLaVA-1.5）。
+
+- **架构效率**: 采用更高效的模型架构，例如从 BLIP-2 中复杂的 Q-Former 模块过渡到 VILA 中更简单但有效的线性投影器。
+
 ---
 
 ## 5 Benchmarks and Performance
+
+本章首先在 表 2 中汇总了主流 MM-LLMs 在 18 个视觉语言 (VL) 基准测试上的性能对比。
+
+![alt text](pics/image3.png)
+
+随后，论文重点分析了模型在四个特定基准上的表现：
+
+- **OKVQA**: 这个基准需要模型利用常识、世界知识和视觉知识进行推理。MiniGPT-v2 和 MiniGPT-v2-chat 在此表现最佳，展示了其卓越的推理能力。
+
+- **IconVQA**: 强调对抽象图表的理解和认知推理。MiniGPT-v2 在此也表现出色 23。
+
+- **$VQA^{v2}$**: 这是一个更平衡的 VQA 数据集。VILA-13B 在此表现最好，显示了其强大的多模态信息理解能力和对语言偏见的抵抗力。
+
+- **GQA**: 这是一个专注于图像场景图和组合式问题的 VQA 数据集 26。LLaVA-1.5 和 VILA-7B 在此表现最佳。
+
+接下来，本章从 SOTA 模型中提炼出了几个可提升 MM-LLMs 效果的**训练秘诀 (Training Recipes)**：
+
+**更高的图像分辨率**:更高的分辨率（如 $336\times336$ 或 $448\times448$）能为模型带来更多视觉细节，有益于需要细粒度信息的任务。但这会增加训练和推理成本。MiniGPT-v2 通过在嵌入空间中拼接相邻的视觉标记来解决此问题。Monkey 模型则提出了一种方法，仅使用低分辨率编码器就能支持高达 $1300\times800$ 的分辨率。
+
+**高质量的 SFT 数据**:在 SFT 阶段加入高质量的数据（如 ShareGPT4V 数据）可以显著提高模型在特定任务上的性能，如表 2 中 LLaVA-1.5 和 VILA-13B 的性能提升所示。
+
+**VILA 模型揭示的关键发现**:在 LLM 骨干上执行 PEFT（参数高效微调）对于促进深层嵌入对齐至关重要，这对上下文学习 (ICL) 很关键。使用交错的 (Interleaved) 图像-文本数据是有益的，而仅使用图像-文本对数据是次优的。在 SFT 阶段，将纯文本指令数据与图像-文本数据重新混合，不仅解决了纯文本任务性能下降的问题，甚至还提高了 VL 任务的准确性。
 
 ---
 
 ## 6 Future Directions
 
+- **More General and Intelligent Models**
+
+- **More Challenging Benchmarks**
+
+- **Mobile/Lightweight Deployment**
+
+- **Embodied Intelligence**
+
+- **Continual Learning**
+
+- **Mitigating Hallucination**
+
 ---
 
 ## 7 Conclusion
+
+Website: https://mm-llms.github.io
