@@ -38,7 +38,19 @@ Scalable synthesis of structured, high-quality agentic trajectories, combined wi
 
 ### 2.2 Pre-training Data: Improving Token Utility with Rephrasing
 
+**Knowledge Data Rephrasing**
+
+- **Style- and perspective-diverse prompting**
+
+- **Chunk-wise autoregressive generation**
+
+- **Fidelity verification**
+
+![alt text](pics/image.png)
+
 ### 2.3 Model Architecture
+
+The architecture follows a similar design to DeepSeek-V3.
 
 ### 2.4 Training Infrastructure
 
@@ -55,6 +67,30 @@ Scalable synthesis of structured, high-quality agentic trajectories, combined wi
 ### 3.1 Supervised Fine-Tuning
 
 #### 3.1.1 Large-Scale Agentic Data Synthesis for Tool Use Learning
+
+**Challenge**: while real-world environments provide rich and authentic interaction signals, they are often difficult to construct at scale due to cost, complexity, privacy and accessibility constraints.
+
+**Stages in data synthesis pipeline**
+
+- *Tool spec generation*
+
+= *Agent and task generation*
+
+- *Trajectory generation*
+
+![alt text](pics/image1.png)
+
+- **Domain Evolution and Tool Generation**
+
+- **Agent Diversification**
+
+- **Rubric-Based Task Generation**
+
+- **Multi-turn Trajectory Generation**
+
+- **Quality Evaluation and Filtering**
+
+- **Hybrid Approach with Real Execution Environments**
 
 ### 3.2 Reinforcement Learning
 
